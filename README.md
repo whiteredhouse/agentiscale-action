@@ -33,7 +33,7 @@ token](https://github.com/whiteredhouse/agentiscaled/blob/main/docs/getting-star
 
 ## What it does
 
-1. Installs [agentiscaled](https://github.com/whiteredhouse/agentiscaled), checked
+1. Installs [agentiscaled](https://github.com/whiteredhouse/agentiscaled) with its `install.sh`, checked
    against the release's checksums, and puts it on `PATH`.
 2. Asks GitHub for a token whose audience is the control service's URL followed by
    `/networks/` and your network's ID, so it can join only that network.

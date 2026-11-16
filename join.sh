@@ -23,42 +23,32 @@ timeout=${AGENTISCALE_TIMEOUT:-120}
 [[ "$timeout" =~ ^[0-9]+$ ]] || fail "timeout-seconds must be a whole number"
 
 case "${RUNNER_OS:-}/${RUNNER_ARCH:-}" in
-Linux/X64) platform=linux_amd64 ;;
-Linux/ARM64) platform=linux_arm64 ;;
-macOS/X64) platform=darwin_amd64 ;;
-macOS/ARM64) platform=darwin_arm64 ;;
+Linux/X64 | Linux/ARM64 | macOS/X64 | macOS/ARM64) ;;
 *) fail "agentiscaled runs on Linux and macOS runners (x64 or ARM64), not ${RUNNER_OS:-?}/${RUNNER_ARCH:-?}" ;;
 esac
 
-# ---- the release, checked against its checksums ----
+# ---- the release, checked against its checksums by agentiscaled's install.sh ----
+# The script is pinned to a commit of whiteredhouse/agentiscaled; bump it
+# there and here together.
+install_sh=https://raw.githubusercontent.com/whiteredhouse/agentiscaled/91085fe466f0043d562f636e21658a59d2242a6d/install.sh
+min=v0.11.0
 version=${AGENTISCALE_VERSION:-latest}
-releases=https://github.com/whiteredhouse/agentiscaled/releases
-if [ "$version" = latest ]; then
-	version=$(curl -sSfI --retry 3 "$releases/latest" | tr -d '\r' | sed -n 's|^[Ll]ocation: .*/tag/||p')
+older() { [ "$(printf '%s\n' "$min" "$1" | sort -V | head -n 1)" != "$min" ]; }
+if [ "$version" != latest ]; then
+	[[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "version must be a release like v0.12.0 or latest, not '$version'"
+	! older "$version" || fail "$version can't join with an OIDC token; use $min or later"
 fi
-[[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "version must be a release like v0.12.0 or latest, not '$version'"
-if [ "$(printf '%s\n' v0.11.0 "$version" | sort -V | head -n 1)" != v0.11.0 ]; then
-	fail "$version can't join with an OIDC token; use v0.11.0 or later"
-fi
-install_dir="${RUNNER_TEMP:-/tmp}/agentiscaled-$version"
+install_dir="${RUNNER_TEMP:-/tmp}/agentiscaled"
 bin="$install_dir/agentiscaled"
-if [ ! -x "$bin" ]; then
-	archive="agentiscaled_${version#v}_${platform}.tar.gz"
-	mkdir -p "$install_dir"
-	curl -sSfL --retry 3 -o "$install_dir/$archive" "$releases/download/$version/$archive"
-	curl -sSfL --retry 3 -o "$install_dir/checksums.txt" "$releases/download/$version/checksums.txt"
-	want=$(awk -v f="$archive" '$2 == f { print $1 }' "$install_dir/checksums.txt")
-	if command -v sha256sum >/dev/null; then
-		got=$(sha256sum "$install_dir/$archive" | awk '{ print $1 }')
-	else
-		got=$(shasum -a 256 "$install_dir/$archive" | awk '{ print $1 }')
-	fi
-	[ -n "$want" ] && [ "$want" = "$got" ] || fail "checksum mismatch for $archive"
-	tar -xzf "$install_dir/$archive" -C "$install_dir" agentiscaled
-	rm -f "$install_dir/$archive"
-fi
+script=$(mktemp)
+curl -sSfL --retry 3 -o "$script" "$install_sh" || fail "couldn't download install.sh"
+PATH="$install_dir:$PATH" AGENTISCALE_VERSION=$version AGENTISCALE_INSTALL_DIR=$install_dir sh "$script" ||
+	fail "couldn't install agentiscaled $version"
+rm -f "$script"
+installed=$("$bin" version 2>&1 | sed -n 's/^agentiscaled \([0-9][^ ]*\) .*/v\1/p' | head -n 1)
+[ -n "$installed" ] || fail "the installed agentiscaled doesn't report its version"
+! older "$installed" || fail "$installed can't join with an OIDC token; use $min or later"
 echo "$install_dir" >>"$GITHUB_PATH"
-echo "Installed $("$bin" version 2>&1 | head -n 1)"
 
 # ---- join with a token for this network only ----
 mkdir -p "$data_dir"
