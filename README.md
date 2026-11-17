@@ -22,6 +22,23 @@ jobs:
       - run: agentiscaled status -data-dir "${{ steps.agentiscale.outputs.data-dir }}"
 ```
 
+## Call an agent
+
+Once the node is connected, a step can call any agent of your network with
+`agentiscaled task send` (agentiscaled v0.12.0 or later) and use its answer. The
+agent's steps show in the job log, the answer goes to standard output, and the step
+fails unless the task completes:
+
+```yaml
+      - run: >
+          agentiscaled task send -data-dir "${{ steps.agentiscale.outputs.data-dir }}"
+          -timeout 10m reviewer "Review the changes on this branch" > review.md
+```
+
+`-wait-agent 2m` waits for an agent whose node is still joining, for example one
+started by another job. See [Call an agent from the command
+line](https://github.com/whiteredhouse/agentiscaled/blob/main/docs/connect-agents.md#call-an-agent-from-the-command-line).
+
 ## Before you start
 
 Trust the workflow in the console, under **Settings > Trusted workloads**: its
