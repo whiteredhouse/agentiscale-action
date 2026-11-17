@@ -118,11 +118,11 @@ class JoinTest(unittest.TestCase):
         self.assertFalse((self.tmp / "node" / "oidc-token").exists())
         install = Path((self.tmp / "path").read_text().strip())
         self.assertTrue((install / "agentiscaled").is_file())
-        self.assertRegex(install.name, r"^agentiscaled-v\d+\.\d+\.\d+$")
+        self.assertIn("Installed agentiscaled ", result.stdout)
 
     def test_version_installs_that_release(self):
         result = self.join(AGENTISCALE_VERSION="v0.11.0")
-        self.assertIn("agentiscaled-v0.11.0", (self.tmp / "path").read_text(), result.stdout + result.stderr)
+        self.assertIn("Installed agentiscaled 0.11.0 ", result.stdout, result.stdout + result.stderr)
 
     def test_checks_before_asking_for_a_token(self):
         for env, message in [
