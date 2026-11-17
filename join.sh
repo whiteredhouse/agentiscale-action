@@ -30,7 +30,7 @@ esac
 # ---- the release, checked against its checksums by agentiscaled's install.sh ----
 # The script is pinned to a commit of whiteredhouse/agentiscaled; bump it
 # there and here together.
-install_sh=https://raw.githubusercontent.com/whiteredhouse/agentiscaled/ab8e20948f3db8eb1ede077223414b35a94c6c1b/install.sh
+install_sh=https://raw.githubusercontent.com/whiteredhouse/agentiscaled/f7ef019d6a218177403a9bebad2aa52da2e88832/install.sh
 min=v0.11.0
 version=${AGENTISCALE_VERSION:-latest}
 older() { [ "$(printf '%s\n' "$min" "$1" | sort -V | head -n 1)" != "$min" ]; }
