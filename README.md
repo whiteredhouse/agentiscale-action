@@ -67,7 +67,20 @@ its `-timeout` bounds the wait, not the task:
           DATA_DIR: ${{ steps.agentiscale.outputs.data-dir }}
           TASK: ${{ steps.tasks.outputs.tests }}
         run: agentiscaled task wait -data-dir "$DATA_DIR" -timeout 15m tester "$TASK" > tests.md
+      # Stop any task still running, however the job ended.
+      - if: ${{ always() }}
+        env:
+          DATA_DIR: ${{ steps.agentiscale.outputs.data-dir }}
+          REVIEW: ${{ steps.tasks.outputs.review }}
+          TESTS: ${{ steps.tasks.outputs.tests }}
+        run: |
+          agentiscaled task cancel -data-dir "$DATA_DIR" -- reviewer "$REVIEW"
+          agentiscaled task cancel -data-dir "$DATA_DIR" -- tester "$TESTS"
 ```
+
+The last step needs agentiscaled v0.15.0 or later. `task cancel` leaves a task that
+has already ended as it is and skips an empty ID, so it succeeds whichever tasks were
+sent and finished.
 
 The exit status says how a task went: 0 completed; 1 the command failed, for example
 the agent could not be reached; 2 the task failed, was rejected or was cancelled; 3
@@ -78,10 +91,10 @@ An agent runs one task at a time and rejects another, so send each agent at most
 task, and keep any runs that call the same agent from overlapping, whatever their
 workflow or branch: give their jobs a `concurrency` group named after the agents, such
 as `group: agentiscale-reviewer` with `cancel-in-progress: false`. Only the job's node
-can follow its tasks: a task left running, after a wait times out or the job is
-cancelled, keeps its agent busy until it ends and later tasks for that agent are
-rejected until then: up to 15 minutes of work, or up to an hour while it waits for an
-answer to a question (exit 3). Set the job's `timeout-minutes` to the sum of its
+can follow or cancel its tasks: a task left running, for example when the runner
+stops before the cleanup step, keeps its agent busy until it ends and later tasks for
+that agent are rejected until then: up to 15 minutes of work, or up to an hour while
+it waits for an answer to a question (exit 3). Set the job's `timeout-minutes` to the sum of its
 waits plus a margin, and give the trust a node lifetime longer than the job. A wait
 that fails can leave its output file empty.
 
