@@ -48,19 +48,37 @@ its `-timeout` bounds the wait, not the task:
         env:
           DATA_DIR: ${{ steps.agentiscale.outputs.data-dir }}
         run: |
-          echo "review=$(agentiscaled task send -data-dir "$DATA_DIR" -no-wait reviewer "Review the changes on this branch")" >> "$GITHUB_OUTPUT"
-          echo "tests=$(agentiscaled task send -data-dir "$DATA_DIR" -no-wait tester "Run the integration tests")" >> "$GITHUB_OUTPUT"
-      - run: >
-          agentiscaled task wait -data-dir "${{ steps.agentiscale.outputs.data-dir }}"
-          -timeout 10m reviewer "${{ steps.tasks.outputs.review }}" > review.md
-      - run: >
-          agentiscaled task wait -data-dir "${{ steps.agentiscale.outputs.data-dir }}"
-          -timeout 10m tester "${{ steps.tasks.outputs.tests }}" > tests.md
+          review=$(agentiscaled task send -data-dir "$DATA_DIR" -no-wait reviewer "Review the changes on this branch")
+          echo "review=$review" >> "$GITHUB_OUTPUT"
+          tests=$(agentiscaled task send -data-dir "$DATA_DIR" -no-wait tester "Run the integration tests")
+          echo "tests=$tests" >> "$GITHUB_OUTPUT"
+      # Wait for every task that was sent, even when another step failed.
+      - if: ${{ !cancelled() && steps.tasks.outputs.review }}
+        env:
+          DATA_DIR: ${{ steps.agentiscale.outputs.data-dir }}
+          TASK: ${{ steps.tasks.outputs.review }}
+        run: agentiscaled task wait -data-dir "$DATA_DIR" -timeout 15m reviewer "$TASK" > review.md
+      - if: ${{ !cancelled() && steps.tasks.outputs.tests }}
+        env:
+          DATA_DIR: ${{ steps.agentiscale.outputs.data-dir }}
+          TASK: ${{ steps.tasks.outputs.tests }}
+        run: agentiscaled task wait -data-dir "$DATA_DIR" -timeout 15m tester "$TASK" > tests.md
 ```
 
-The exit status says how a task went: 0 completed, 2 it failed, was rejected or
-cancelled, 3 the agent asks a question, 4 the timeout passed. See [Call an agent from
-the command
+The exit status says how a task went: 0 completed; 1 the command failed, for example
+the agent could not be reached; 2 the task failed, was rejected or was cancelled; 3
+the agent asks a question, which this flow does not answer; 4 the timeout passed and
+the task still runs.
+
+An agent runs one task at a time and rejects another, so send each agent at most one
+task, and keep runs of the workflow that call the same agents from overlapping, for
+example with a `concurrency` group. Only the job's node can follow its tasks: a task
+left running, after a wait times out or the job is cancelled, keeps its agent busy
+until it ends (at most 15 minutes) and later tasks for that agent are rejected until
+then. Give the job a `timeout-minutes` that covers its waits, and the trust a node
+lifetime longer than the job.
+
+See [Call an agent from the command
 line](https://github.com/whiteredhouse/agentiscaled/blob/main/docs/connect-agents.md#call-an-agent-from-the-command-line).
 
 ## Before you start
