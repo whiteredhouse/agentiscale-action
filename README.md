@@ -30,13 +30,17 @@ agent's steps show in the job log, the answer goes to standard output, and the s
 fails unless the task completes:
 
 ```yaml
-      - run: >
-          agentiscaled task send -data-dir "${{ steps.agentiscale.outputs.data-dir }}"
+      - env:
+          DATA_DIR: ${{ steps.agentiscale.outputs.data-dir }}
+        run: >
+          agentiscaled task send -data-dir "$DATA_DIR"
           -timeout 10m reviewer "Review the changes on this branch" > review.md
 ```
 
+`-timeout` bounds the whole call; when it passes, the command cancels the task.
+
 `-wait-agent 2m` waits for an agent whose node is still joining, for example one
-started by another job.
+started by another job; it works with `-no-wait` too.
 
 To run several agents at once, send each task with `-no-wait`, which prints the
 task's ID and returns, and collect the answers with `agentiscaled task wait`
@@ -71,12 +75,14 @@ the agent asks a question, which this flow does not answer; 4 the timeout passed
 the task still runs.
 
 An agent runs one task at a time and rejects another, so send each agent at most one
-task, and keep runs of the workflow that call the same agents from overlapping, for
-example with a `concurrency` group. Only the job's node can follow its tasks: a task
-left running, after a wait times out or the job is cancelled, keeps its agent busy
-until it ends (at most 15 minutes) and later tasks for that agent are rejected until
-then. Give the job a `timeout-minutes` that covers its waits, and the trust a node
-lifetime longer than the job.
+task, and keep any runs that call the same agent from overlapping, whatever their
+workflow or branch: give their jobs a `concurrency` group named after the agents, such
+as `group: agentiscale-reviewer` with `cancel-in-progress: false`. Only the job's node
+can follow its tasks: a task left running, after a wait times out or the job is
+cancelled, keeps its agent busy until it ends (at most 15 minutes) and later tasks for
+that agent are rejected until then. Set the job's `timeout-minutes` to the sum of its
+waits plus a margin, and give the trust a node lifetime longer than the job. A wait
+that fails can leave its output file empty.
 
 See [Call an agent from the command
 line](https://github.com/whiteredhouse/agentiscaled/blob/main/docs/connect-agents.md#call-an-agent-from-the-command-line).
