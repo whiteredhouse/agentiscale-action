@@ -79,8 +79,9 @@ task, and keep any runs that call the same agent from overlapping, whatever thei
 workflow or branch: give their jobs a `concurrency` group named after the agents, such
 as `group: agentiscale-reviewer` with `cancel-in-progress: false`. Only the job's node
 can follow its tasks: a task left running, after a wait times out or the job is
-cancelled, keeps its agent busy until it ends (at most 15 minutes) and later tasks for
-that agent are rejected until then. Set the job's `timeout-minutes` to the sum of its
+cancelled, keeps its agent busy until it ends and later tasks for that agent are
+rejected until then: up to 15 minutes of work, or up to an hour while it waits for an
+answer to a question (exit 3). Set the job's `timeout-minutes` to the sum of its
 waits plus a margin, and give the trust a node lifetime longer than the job. A wait
 that fails can leave its output file empty.
 
