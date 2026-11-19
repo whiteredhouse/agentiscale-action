@@ -36,7 +36,31 @@ fails unless the task completes:
 ```
 
 `-wait-agent 2m` waits for an agent whose node is still joining, for example one
-started by another job. See [Call an agent from the command
+started by another job.
+
+To run several agents at once, send each task with `-no-wait`, which prints the
+task's ID and returns, and collect the answers with `agentiscaled task wait`
+(agentiscaled v0.14.0 or later). Each wait fails its step unless that task completes;
+its `-timeout` bounds the wait, not the task:
+
+```yaml
+      - id: tasks
+        env:
+          DATA_DIR: ${{ steps.agentiscale.outputs.data-dir }}
+        run: |
+          echo "review=$(agentiscaled task send -data-dir "$DATA_DIR" -no-wait reviewer "Review the changes on this branch")" >> "$GITHUB_OUTPUT"
+          echo "tests=$(agentiscaled task send -data-dir "$DATA_DIR" -no-wait tester "Run the integration tests")" >> "$GITHUB_OUTPUT"
+      - run: >
+          agentiscaled task wait -data-dir "${{ steps.agentiscale.outputs.data-dir }}"
+          -timeout 10m reviewer "${{ steps.tasks.outputs.review }}" > review.md
+      - run: >
+          agentiscaled task wait -data-dir "${{ steps.agentiscale.outputs.data-dir }}"
+          -timeout 10m tester "${{ steps.tasks.outputs.tests }}" > tests.md
+```
+
+The exit status says how a task went: 0 completed, 2 it failed, was rejected or
+cancelled, 3 the agent asks a question, 4 the timeout passed. See [Call an agent from
+the command
 line](https://github.com/whiteredhouse/agentiscaled/blob/main/docs/connect-agents.md#call-an-agent-from-the-command-line).
 
 ## Before you start
