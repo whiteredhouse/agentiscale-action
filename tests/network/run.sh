@@ -47,7 +47,7 @@ image=${NETWORK_CHECK_IMAGE:-debian@sha256:734a72b3d6142a71993b4bc580ca01d8ca687
 if [ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ] && [ -n "${AGENTISCALE_CI_NETWORK:-}" ]; then
 	credential=oidc
 elif [ -n "${AGENTISCALE_CI_JOIN_CODE:-}" ]; then
-	credential=join-code
+	credential="join-code"
 else
 	echo "set AGENTISCALE_CI_NETWORK in a GitHub Actions job with id-token: write, or AGENTISCALE_CI_JOIN_CODE" >&2
 	exit 1
@@ -103,6 +103,8 @@ join_flags() {
 }
 containers=()
 networks=()
+# Called by the EXIT trap.
+# shellcheck disable=SC2329
 stop() {
 	for c in "${containers[@]}"; do
 		docker logs "$c" >"$work/${c#"network-check-$run_id-"}.log" 2>&1 || true
