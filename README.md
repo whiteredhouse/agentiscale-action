@@ -43,9 +43,10 @@ fails unless the task completes:
 started by another job; it works with `-no-wait` too.
 
 To run several agents at once, send each task with `-no-wait`, which prints the
-task's ID and returns, and collect the answers with `agentiscaled task wait`
-(agentiscaled v0.14.0 or later). Each wait fails its step unless that task completes;
-its `-timeout` bounds the wait, not the task:
+task's reference (`<peer ID>/<agent>/<task ID>`) and returns, and collect the answers
+with `agentiscaled task wait` (agentiscaled v0.18.0 or later). The reference says where
+the task went, so the later steps need no agent name. Each wait fails its step unless
+that task completes; its `-timeout` bounds the wait, not the task:
 
 ```yaml
       - id: tasks
@@ -61,26 +62,23 @@ its `-timeout` bounds the wait, not the task:
         env:
           DATA_DIR: ${{ steps.agentiscale.outputs.data-dir }}
           TASK: ${{ steps.tasks.outputs.review }}
-        run: agentiscaled task wait -data-dir "$DATA_DIR" -timeout 15m reviewer "$TASK" > review.md
+        run: agentiscaled task wait -data-dir "$DATA_DIR" -timeout 15m "$TASK" > review.md
       - if: ${{ !cancelled() && steps.tasks.outputs.tests }}
         env:
           DATA_DIR: ${{ steps.agentiscale.outputs.data-dir }}
           TASK: ${{ steps.tasks.outputs.tests }}
-        run: agentiscaled task wait -data-dir "$DATA_DIR" -timeout 15m tester "$TASK" > tests.md
+        run: agentiscaled task wait -data-dir "$DATA_DIR" -timeout 15m "$TASK" > tests.md
       # Stop any task still running, however the job ended.
       - if: ${{ always() }}
         env:
           DATA_DIR: ${{ steps.agentiscale.outputs.data-dir }}
           REVIEW: ${{ steps.tasks.outputs.review }}
           TESTS: ${{ steps.tasks.outputs.tests }}
-        run: |
-          agentiscaled task cancel -data-dir "$DATA_DIR" -- reviewer "$REVIEW"
-          agentiscaled task cancel -data-dir "$DATA_DIR" -- tester "$TESTS"
+        run: agentiscaled task cancel -data-dir "$DATA_DIR" "$REVIEW" "$TESTS"
 ```
 
-The last step needs agentiscaled v0.15.0 or later. `task cancel` leaves a task that
-has already ended as it is and skips an empty ID, so it succeeds whichever tasks were
-sent and finished.
+`task cancel` leaves a task that has already ended as it is and skips an empty
+reference, so it succeeds whichever tasks were sent and finished.
 
 The exit status says how a task went: 0 completed; 1 the command failed, for example
 the agent could not be reached; 2 the task failed, was rejected or was cancelled; 3
